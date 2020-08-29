@@ -9,7 +9,7 @@ import numpy as np
 from glob import glob
 
 from .params import create_pext
-from .viz import plot_hist_input, plot_spikes_raster, plot_cells
+from .viz import plot_hist, plot_spikes_raster, plot_cells
 
 
 def read_spikes(fname, gid_dict=None):
@@ -484,8 +484,7 @@ class Spikes(object):
                 Ex: ['common', 'evdist']
             Dictionary of valid lists will plot list elements as a group.
                 Ex: {'Evoked': ['evdist', 'evprox'], 'External': ['extpois']}
-            If None, all default spike types are plotted individually.
-                Default: ['common', 'evdist', 'evprox', 'extgauss', 'extpois']
+            If None, all input spike types are plotted individually.
             Valid strings also include leading characters of spike types
                 Example: 'ext' is equivalent to ['extgauss', 'extpois']
         show : bool
@@ -498,8 +497,8 @@ class Spikes(object):
         """
         return plot_spikes_raster(spikes=self, ax=ax, show=show)
 
-    def plot_input(self, ax=None, spike_types=None, show=True):
-        """Plot the histogram of input.
+    def plot_hist(self, ax=None, spike_types=None, show=True):
+        """Plot the histogram of spiking activity.
 
         Parameters
         ----------
@@ -514,7 +513,7 @@ class Spikes(object):
         fig : instance of matplotlib Figure
             The matplotlib figure handle.
         """
-        return plot_hist_input(
+        return plot_hist(
             self, ax=ax, spike_types=spike_types, show=show)
 
     def write(self, fname):
