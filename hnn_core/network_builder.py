@@ -13,6 +13,7 @@ if int(__version__[0]) >= 8:
     h.nrnunit_use_legacy(1)
 
 from .cell import _ArtificialCell
+from .cells_default import pyramidal_ca, pyramidal, basket
 from .params import _long_name, _short_name
 from copy import deepcopy
 from .extracellular import ExtracellularArrayBuilder
@@ -392,6 +393,8 @@ class NetworkBuilder(object):
         These drives are spike SOURCES but cells are also targets.
         External inputs are not targets.
         """
+        type2class = {'L2_pyramidal': pyramidal, 'L5_pyramidal': pyramidal_ca,
+                      'L2_basket': basket, 'L5_basket': basket}
         # loop through ALL gids
         # have to loop over self._gid_list, since this is what we got
         # on this rank (MPI)
