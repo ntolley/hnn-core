@@ -290,7 +290,7 @@ def _get_g_at_dist(x, gsoma, gdend, xkink):
     return g
 
 
-def pyramidal_ca(pos, cell_name, override_params=None, gid=None):
+def pyramidal_ca(cell_name, pos, override_params=None, gid=None):
     """Calcium dynamics."""
 
     if override_params is None:
@@ -309,6 +309,6 @@ def pyramidal_ca(pos, cell_name, override_params=None, gid=None):
     override_params['L5Pyr_dend_gkbar_hh2'] = 1e-4
     override_params['L5Pyr_dend_gnabar_hh2'] = 28e-4
     override_params['L5Pyr_dend_gbar_ca'] = gbar_ca
-    cell = pyramidal(pos, cell_name, override_params=override_params,
+    cell = pyramidal(cell_name, pos, override_params=override_params,
                      gid=gid)
     return cell
