@@ -16,6 +16,7 @@ from .cell import _ArtificialCell
 from .params import _long_name, _short_name
 from copy import deepcopy
 from .extracellular import ExtracellularArrayBuilder
+from tqdm import tqdm
 
 # a few globals
 _PC = None
@@ -62,8 +63,10 @@ def _simulate_single_trial(neuron_net, trial_idx):
     h.finitialize()
 
     def simulation_time():
-        print('Simulation time: {0} ms...'.format(round(h.t, 2)))
+        pbar.update(10)
 
+    pbar = tqdm(total=neuron_net.net._params['tstop'], unit='ms',
+                dynamic_ncols=True, desc='Simulation Times')
     if rank == 0:
         for tt in range(0, int(h.tstop), 10):
             _CVODE.event(tt, simulation_time)
