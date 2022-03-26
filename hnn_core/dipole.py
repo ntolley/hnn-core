@@ -8,10 +8,11 @@ import numpy as np
 from copy import deepcopy
 
 from .viz import plot_dipole, plot_psd, plot_tfr_morlet
+from .utils import set_log_level
 
 
 def simulate_dipole(net, tstop, dt=0.025, n_trials=None, record_vsoma=False,
-                    record_isoma=False, postproc=False):
+                    record_isoma=False, postproc=False, verbose=True):
     """Simulate a dipole given the experiment parameters.
 
     Parameters
@@ -38,6 +39,8 @@ def simulate_dipole(net, tstop, dt=0.025, n_trials=None, record_vsoma=False,
         extracellular recordings etc. The preferred way is to use the
         :meth:`~hnn_core.dipole.Dipole.smooth` and
         :meth:`~hnn_core.dipole.Dipole.scale` methods instead. Default: False.
+     verbose: boolean or int
+        default: False
 
     Returns
     -------
@@ -49,6 +52,8 @@ def simulate_dipole(net, tstop, dt=0.025, n_trials=None, record_vsoma=False,
 
     if _BACKEND is None:
         _BACKEND = JoblibBackend(n_jobs=1)
+
+    set_log_level(verbose=verbose)
 
     if n_trials is None:
         n_trials = net._params['N_trials']

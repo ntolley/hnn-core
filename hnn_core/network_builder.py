@@ -18,7 +18,7 @@ from .cell import _ArtificialCell
 from .params import _long_name, _short_name
 from .extracellular import _ExtracellularArrayBuilder
 from .network import pick_connection
-from tqdm import tqdm
+from .utils import _verbose_iterable, _tqdm_log
 
 # a few globals
 _PC = None
@@ -52,8 +52,8 @@ def _simulate_single_trial(net, tstop, dt, trial_idx):
 
     _PC.barrier()  # sync for output to screen
     if rank == 0:
-        print("running trial %d on %d cores" %
-              (trial_idx + 1, nhosts))
+        _tqdm_log("running trial %d on %d cores" %
+                  (trial_idx + 1, nhosts))
 
     # Set tstop before instantiating any classes
     h.tstop = tstop
@@ -72,8 +72,8 @@ def _simulate_single_trial(net, tstop, dt, trial_idx):
     def simulation_time():
         pbar.update(10)
 
-    pbar = tqdm(total=neuron_net.net._params['tstop'], unit='ms',
-                dynamic_ncols=True, desc='Simulation Times')
+    pbar = _verbose_iterable(neuron_net.net._params['tstop'])
+
     if rank == 0:
         for tt in range(0, int(h.tstop), 10):
             _CVODE.event(tt, simulation_time)
