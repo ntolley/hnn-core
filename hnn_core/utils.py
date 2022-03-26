@@ -4,8 +4,85 @@
 #          Sam Neymotin <samnemo@gmail.com>
 #          Christopher Bailey <cjb@cfin.au.dk>
 
+import logging
 import numpy as np
+
 from .externals.mne import _validate_type
+
+
+logger = logging.getLogger('hnn-core')
+logger.addHandler(logging.StreamHandler())
+
+try:
+    from tqdm.auto import tqdm
+    has_tqdm = True
+except ImportError:
+    logger.warning(
+        "tqdm library not found. Falling back to non-interactive progress "
+        "visualization.")
+    has_tqdm = False
+
+def set_log_level(verbose):
+    """Convenience function for setting the log level.
+
+    Parameters
+    ----------
+    verbose : bool, str, int, or None
+        The verbosity of messages to print. If a str, it can be either DEBUG,
+        INFO, WARNING, ERROR, or CRITICAL. Note that these are for
+        convenience and are equivalent to passing in logging.DEBUG, etc.
+        For bool, True is the same as 'INFO', False is the same as 'WARNING'.
+    """
+    if isinstance(verbose, bool):
+        if verbose is True:
+            verbose = 'INFO'
+        else:
+            verbose = 'WARNING'
+    if isinstance(verbose, str):
+        verbose = verbose.upper()
+        logging_types = dict(DEBUG=logging.DEBUG, INFO=logging.INFO,
+                             WARNING=logging.WARNING, ERROR=logging.ERROR,
+                             CRITICAL=logging.CRITICAL)
+        if verbose not in logging_types:
+            raise ValueError('verbose must be of a valid type')
+        verbose = logging_types[verbose]
+    logger.setLevel(verbose)
+
+
+def _verbose_iterable(data):
+    """Wrap an iterable object with tqdm.
+
+    If tqdm is not available or if we did not set the appropriate
+    log level, then we fall back to the classical method.
+
+    Parameters
+    ----------
+    data: range, list
+        This will be data which will wrapped by tqdm (if available).
+    Returns
+    -------
+    wrapped_data: tqdm object
+        Data object wrapped with tqdm.
+    """
+    wrapped_data = data
+    if logger.getEffectiveLevel() == logging.INFO:
+        if has_tqdm:
+            wrapped_data = tqdm(data, leave=False)
+    return wrapped_data
+
+
+def _tqdm_log(msg):
+    """Log a message by using either tqdm or the system logger.
+
+    Parameters
+    ----------
+    msg: string
+        Message which will be printed
+    """
+    if has_tqdm:
+        tqdm.write(msg)
+    else:
+        logger.info(msg)
 
 
 def _hammfilt(x, winsz):
