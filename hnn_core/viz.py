@@ -8,6 +8,7 @@ import numpy as np
 from itertools import cycle
 from .externals.mne import _validate_type
 import imageio
+from matplotlib import cm
 
 
 def _get_plot_data_trange(times, data, tmin, tmax):
@@ -757,7 +758,8 @@ def _linewidth_from_data_units(ax, linewidth):
     return linewidth * (length / value_range)
 
 
-def plot_cell_morphology(cell, ax, show=True, color=None):
+def plot_cell_morphology(cell, ax, show=True, color=None, pos=(0, 0, 0),
+                         xlim=None, ylim=None, zlim=None):
     """Plot the cell morphology.
 
     Parameters
@@ -772,6 +774,8 @@ def plot_cell_morphology(cell, ax, show=True, color=None):
         Color of cell. If str, entire cell plotted with
         desired color. If dict, colors of individual sections
         can be specified. Must have a key for each section in cell.
+    pos : tuple of int or float
+        Coordinates of cell defined as (x, z, y). Default (0, 0, 0).
 
     Returns
     -------
@@ -793,8 +797,11 @@ def plot_cell_morphology(cell, ax, show=True, color=None):
         section_colors = color
 
     # Cell is in XZ plane
-    ax.set_xlim((cell.pos[1] - 250, cell.pos[1] + 150))
-    ax.set_zlim((cell.pos[2] - 100, cell.pos[2] + 1200))
+    # ax.set_xlim((cell.pos[1] - 250, cell.pos[1] + 150))
+    # ax.set_zlim((cell.pos[2] - 100, cell.pos[2] + 1200))
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
+    ax.set_zlim(zlim)
 
     for sec_name, section in cell.sections.items():
         linewidth = _linewidth_from_data_units(ax, section.diam)
@@ -804,9 +811,9 @@ def plot_cell_morphology(cell, ax, show=True, color=None):
             dx = cell.pos[0] - cell.sections['soma'].end_pts[0][0]
             dy = cell.pos[1] - cell.sections['soma'].end_pts[0][1]
             dz = cell.pos[2] - cell.sections['soma'].end_pts[0][2]
-            xs.append(pt[0] + dx)
-            ys.append(pt[1] + dz)
-            zs.append(pt[2] + dy)
+            xs.append(pt[0] + dx + pos[0])
+            ys.append(pt[1] + dz + pos[1])
+            zs.append(pt[2] + dy + pos[2])
         ax.plot(xs, ys, zs, 'b-', linewidth=linewidth,
                 color=section_colors[sec_name])
     ax.view_init(0, -90)
@@ -1106,3 +1113,38 @@ def make_movie(image_folder, output_name, images, fps=30, quality=10):
         image_path = str(image_folder) + str(filename)
         writer.append_data(imageio.imread(image_path))
     writer.close()
+
+
+def plot_network(net, fig, ax, t_idx):
+    image_path = 'hnn_movie/images/'
+
+    xlim = (-200, 3100)
+    ylim = (-200, 3100)
+    zlim = (-300, 2200)
+    cell_dist = 300.0
+    vmin, vmax = -100, 50
+    viridis = cm.get_cmap('viridis', 8)
+
+    for cell_type in net.cell_types:
+        gid_range = net.gid_ranges[cell_type]
+        for gid_idx, gid in enumerate(gid_range):
+            print(gid, end=' ')
+
+            cell = net.cell_types[cell_type]
+            vsec = {sec_name: ((np.array(net.cell_response.vsec[0][gid][
+                    sec_name]) - vmin) / (vmax - vmin)) for
+                    sec_name in cell.sections.keys()}
+            section_colors = {sec_name: viridis(vsec[sec_name][t_idx]) for
+                              sec_name in cell.sections.keys()}
+
+            pos = net.pos_dict[cell_type][gid_idx]
+            pos = (pos[0] * cell_dist, pos[1] * cell_dist, pos[2])
+            plot_cell_morphology(
+                cell, ax=ax, show=False, pos=pos,
+                xlim=xlim, ylim=ylim, zlim=zlim, color=section_colors)
+    ax.view_init(10, -100)
+    # ax.axis('on')
+
+    image_name = f'frame{t_idx}.png'
+    fig.savefig(f'{image_path}{image_name}')
+    ax.clear()
