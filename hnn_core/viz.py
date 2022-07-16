@@ -1116,8 +1116,6 @@ def make_movie(image_folder, output_name, images, fps=30, quality=10):
 
 
 def plot_network(net, fig, ax, t_idx):
-    image_path = 'hnn_movie/images/'
-
     xlim = (-200, 3100)
     ylim = (-200, 3100)
     zlim = (-300, 2200)
@@ -1145,6 +1143,4 @@ def plot_network(net, fig, ax, t_idx):
     ax.view_init(10, -100)
     # ax.axis('on')
 
-    image_name = f'frame{t_idx}.png'
-    fig.savefig(f'{image_path}{image_name}')
-    ax.clear()
+    return ax

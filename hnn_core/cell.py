@@ -675,3 +675,20 @@ class Cell:
             The matplotlib 3D axis handle.
         """
         return plot_cell_morphology(self, ax=ax, show=show)
+
+    def update_end_pts(self):
+        """"Create cell and copy coordinates to Section.end_pts"""
+        self._create_sections(self.sections, self.topology)
+        section_names = list(self.sections.keys())
+
+        for name in section_names:
+            nrn_pts = self._nrn_sections[name].psection()['morphology'][
+                'pts3d']
+
+            del self._nrn_sections[name]
+
+            x0, y0, z0 = nrn_pts[0][0], nrn_pts[0][1], nrn_pts[0][2]
+            x1, y1, z1 = nrn_pts[1][0], nrn_pts[1][1], nrn_pts[1][2]
+            self.sections[name]._end_pts = [[x0, y0, z0], [x1, y1, z1]]
+
+        self._nrn_sections = dict()
