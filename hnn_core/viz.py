@@ -1115,7 +1115,7 @@ def make_movie(image_folder, output_name, images, fps=30, quality=10):
     writer.close()
 
 
-def plot_network(net, fig, ax, t_idx):
+def plot_network(net, ax, t_idx):
     xlim = (-200, 3100)
     ylim = (-200, 3100)
     zlim = (-300, 2200)
