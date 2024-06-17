@@ -69,9 +69,16 @@ def _simulate_single_trial(net, tstop, dt, trial_idx):
     def simulation_time():
         print(f'Trial {trial_idx + 1}: {round(h.t, 2)} ms...')
 
+    # def update_poisson():
+    #     for drive_cell in neuron_net._drive_cells:
+    #         drive_cell.nrn_eventvec.append(np.array(list(range(50)) + h.t))
+
     if rank == 0:
         for tt in range(0, int(h.tstop), 10):
             _CVODE.event(tt, simulation_time)
+
+        # for tt in range(0, int(h.tstop), 200):
+        #     _CVODE.event(tt, update_poisson)
 
     h.fcurrent()
 

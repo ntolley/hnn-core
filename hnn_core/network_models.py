@@ -12,7 +12,7 @@ from .externals.mne import _validate_type
 
 
 def jones_2009_model(params=None, add_drives_from_params=False,
-                     legacy_mode=False, mesh_shape=(10, 10)):
+                     legacy_mode=False, mesh_shape=(10, 10), allow_autapses=True):
     """Instantiate the network model described in
     Jones et al. J. of Neurophys. 2009 [1]_
 
@@ -76,6 +76,7 @@ def jones_2009_model(params=None, add_drives_from_params=False,
             key = f'gbar_{_short_name(target_cell)}_'\
                   f'{_short_name(target_cell)}_{receptor}'
             weight = net._params[key]
+
             net.add_connection(
                 target_cell, target_cell, loc, receptor, weight,
                 delay, lamtha, allow_autapses=False)
