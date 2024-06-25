@@ -547,6 +547,53 @@ class Network:
         net_copy._reset_rec_arrays()
         return net_copy
 
+    def add_custom_drive(self, name, *, interval=1e12, noise=0.0,
+                         tstart=0, tstop=None, rate_constant,
+                         location, n_drive_cells='n_cells',
+                         cell_specific=True, weights_ampa=None,
+                         weights_nmda=None, space_constant=100.,
+                         synaptic_delays=0.1, probability=1.0, event_seed=2,
+                         conn_seed=3):
+        """Add a custom drive with Poisson rates modifiable in callbacks"""
+        _check_drive_parameter_values('Poisson', tstart=tstart,
+                                      tstop=tstop)
+        target_populations = _get_target_properties(weights_ampa,
+                                                    weights_nmda,
+                                                    synaptic_delays,
+                                                    location)[0]
+        _check_poisson_rates(rate_constant, target_populations,
+                             self.cell_types.keys())
+        if isinstance(rate_constant, dict):
+            if not cell_specific:
+                raise ValueError(f"Drives specific to cell types are only "
+                                 f"possible with cell_specific=True and "
+                                 f"n_drive_cells='n_cells'. Got cell_specific"
+                                 f" cell_specific={cell_specific} and "
+                                 f"n_drive_cells={n_drive_cells}.")
+        elif isinstance(rate_constant, float):
+            rate_constant = {cell_type: rate_constant for cell_type in
+                             target_populations}
+
+        drive = _NetworkDrive()
+        drive['type'] = 'custom'
+        drive['location'] = location
+        drive['n_drive_cells'] = n_drive_cells
+        drive['event_seed'] = event_seed
+        drive['conn_seed'] = conn_seed
+        drive['dynamics'] = dict(tstart=tstart, tstop=tstop,
+                                 rate_constant=rate_constant,
+                                 interval=interval, noise=noise)
+        drive['events'] = list()
+        # Need to save this information
+        drive['weights_ampa'] = weights_ampa
+        drive['weights_nmda'] = weights_nmda
+        drive['synaptic_delays'] = synaptic_delays
+        drive['probability'] = probability
+
+        self._attach_drive(name, drive, weights_ampa, weights_nmda, location,
+                           space_constant, synaptic_delays,
+                           n_drive_cells, cell_specific, probability)
+
     def add_evoked_drive(self, name, *, mu, sigma, numspikes, location,
                          n_drive_cells='n_cells', cell_specific=True,
                          weights_ampa=None, weights_nmda=None,

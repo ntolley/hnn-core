@@ -99,6 +99,36 @@ def node_to_str(node):
     return node[0] + "," + str(node[1])
 
 
+class _CustomArtificialCell:
+    """Poisson spike generator with adjustable rate."""
+    def __init__(self, interval, noise, threshold, gid=None):
+        # Convert event times into nrn vector
+        self.nrn_nsloc = h.NSLOC()
+        self.nrn_nsloc.interval = interval
+        self.nrn_nsloc.noise = noise
+
+        # create the cell and artificial NetCon
+        self.nrn_netcon = h.NetCon(self.nrn_nsloc, None)
+        self.nrn_netcon.threshold = threshold
+
+        self._gid = None
+        if gid is not None:
+            self.gid = gid  # use setter method to check input argument gid
+
+    @property
+    def gid(self):
+        return self._gid
+
+    @gid.setter
+    def gid(self, gid):
+        if not isinstance(gid, int):
+            raise ValueError('gid must be an integer')
+        if self._gid is None:
+            self._gid = gid
+        else:
+            raise RuntimeError('Global ID for this cell already assigned!')
+
+
 class _ArtificialCell:
     """The ArtificialCell class for initializing a NEURON feed source.
 

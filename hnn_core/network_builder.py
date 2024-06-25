@@ -16,7 +16,7 @@ from neuron import __version__
 if int(__version__[0]) >= 8:
     h.nrnunit_use_legacy(1)
 
-from .cell import _ArtificialCell
+from .cell import _ArtificialCell, _CustomArtificialCell
 from .params import _long_name, _short_name
 from .extracellular import _ExtracellularArrayBuilder
 from .network import pick_connection
@@ -69,16 +69,18 @@ def _simulate_single_trial(net, tstop, dt, trial_idx):
     def simulation_time():
         print(f'Trial {trial_idx + 1}: {round(h.t, 2)} ms...')
 
-    # def update_poisson():
-    #     for drive_cell in neuron_net._drive_cells:
-    #         drive_cell.nrn_eventvec.append(np.array(list(range(50)) + h.t))
+    def update_drives():
+        # for nc in neuron_net.ncs['p_drive_L5Pyr_ampa']:
+        #     nc.interval[0] *= 1.1
+        for drive_cell in neuron_net._drive_cells:
+            drive_cell.nrn_nsloc.interval = np.sin(
+                2 * np.pi * h.t / 1000) * 100 + 110
 
     if rank == 0:
         for tt in range(0, int(h.tstop), 10):
             _CVODE.event(tt, simulation_time)
-
-        # for tt in range(0, int(h.tstop), 200):
-        #     _CVODE.event(tt, update_poisson)
+        for tt in range(0, int(h.tstop), 1):
+            _CVODE.event(tt, update_drives)
 
     h.fcurrent()
 
@@ -448,7 +450,14 @@ class NetworkBuilder(object):
                 assert cell.gid in self._gid_list
                 _PC.cell(cell.gid, nrn_netcon)
                 self._cells.append(cell)
-
+            elif self.net.external_drives[src_type]['type'] == 'custom':
+                interval = self.net.external_drives[
+                    src_type]['dynamics']['interval']
+                noise = self.net.external_drives[src_type]['dynamics']['noise']
+                drive_cell = _CustomArtificialCell(
+                    interval, noise, threshold, gid=gid)
+                _PC.cell(drive_cell.gid, drive_cell.nrn_netcon)
+                self._drive_cells.append(drive_cell)
             # external driving inputs are special types of artificial-cells
             else:
                 event_times = self.net.external_drives[

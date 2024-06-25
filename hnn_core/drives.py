@@ -266,7 +266,7 @@ def _drive_cell_event_times(drive_type, dynamics, tstop, target_type='any',
                             gid=drive_cell_gid)
 
     # check drive name validity, allowing substring matches
-    valid_drives = ['evoked', 'poisson', 'gaussian', 'bursty']
+    valid_drives = ['evoked', 'poisson', 'gaussian', 'bursty', 'custom']
     # NB check if drive_type has a valid substring, not vice versa
     matches = [f for f in valid_drives if f in drive_type]
     if len(matches) == 0:
