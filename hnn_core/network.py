@@ -315,6 +315,11 @@ class Network:
         are added suitably. Will be deprecated in a future release.
     mesh_shape : tuple of int (default: (10, 10))
         Defines the (n_x, n_y) shape of the grid of pyramidal cells.
+    training_param_dict : dict
+        Dictionary specifying parameter updates for training. Interpretted
+        by custom functions in network_builder.py
+    training_update_function : function
+        Function to update parameters defined in training_param_dict.
 
 
     Attributes
@@ -366,10 +371,13 @@ class Network:
     """
 
     def __init__(self, params, add_drives_from_params=False,
-                 legacy_mode=False, mesh_shape=(10, 10)):
+                 legacy_mode=False, mesh_shape=(10, 10),
+                 training_param_dict=None, training_update_function=None):
         # Save the parameters used to create the Network
         _validate_type(params, dict, 'params')
         self._params = params
+        self.training_param_dict = training_param_dict
+        self.training_update_function = training_update_function
         # Initialise a dictionary of cell ID's, which get used when the
         # network is constructed ('built') in NetworkBuilder
         # We want it to remain in each Network object, so that the user can

@@ -41,6 +41,8 @@ def _simulate_single_trial(net, tstop, dt, trial_idx):
     """
 
     neuron_net = NetworkBuilder(net, trial_idx=trial_idx)
+    param_dict = net.training_param_dict
+    update_function = net.training_update_function
 
     global _PC, _CVODE
 
@@ -58,6 +60,7 @@ def _simulate_single_trial(net, tstop, dt, trial_idx):
     h.celsius = net._params['celsius']  # 37.0 - set temperature
 
     times = h.Vector().record(h._ref_t)
+    spike_counts = np.zeros((net._n_gids,))
 
     # sets the default max solver step in ms (purposefully large)
     _PC.set_maxstep(10)
@@ -70,16 +73,21 @@ def _simulate_single_trial(net, tstop, dt, trial_idx):
         print(f'Trial {trial_idx + 1}: {round(h.t, 2)} ms...')
 
     def update_drives():
-        # for nc in neuron_net.ncs['p_drive_L5Pyr_ampa']:
-        #     nc.interval[0] *= 1.1
+        spike_counts.fill(0.0)
+        indices = neuron_net._spike_times.as_numpy() > h.t - param_dict['window_size']
+        values, counts = np.unique(neuron_net._spike_gids.as_numpy()[indices],
+                                   return_counts=True)
+        spike_counts[values.astype(int)] = counts
+
         for drive_cell in neuron_net._drive_cells:
             drive_cell.nrn_nsloc.interval = np.sin(
                 2 * np.pi * h.t / 1000) * 100 + 110
 
     if rank == 0:
-        for tt in range(0, int(h.tstop), 10):
+        for tt in range(0, int(h.tstop), 100):
             _CVODE.event(tt, simulation_time)
-        for tt in range(0, int(h.tstop), 1):
+
+        for tt in range(0, int(h.tstop), param_dict['move_dt']):
             _CVODE.event(tt, update_drives)
 
     h.fcurrent()
