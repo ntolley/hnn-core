@@ -41,8 +41,7 @@ def _simulate_single_trial(net, tstop, dt, trial_idx):
     """
 
     neuron_net = NetworkBuilder(net, trial_idx=trial_idx)
-    param_dict = net.training_param_dict
-    update_function = net.training_update_function
+    param_dict = net.param_dict
 
     global _PC, _CVODE
 
@@ -60,7 +59,6 @@ def _simulate_single_trial(net, tstop, dt, trial_idx):
     h.celsius = net._params['celsius']  # 37.0 - set temperature
 
     times = h.Vector().record(h._ref_t)
-    spike_counts = np.zeros((net._n_gids,))
 
     # sets the default max solver step in ms (purposefully large)
     _PC.set_maxstep(10)
@@ -72,6 +70,25 @@ def _simulate_single_trial(net, tstop, dt, trial_idx):
     def simulation_time():
         print(f'Trial {trial_idx + 1}: {round(h.t, 2)} ms...')
 
+    # _______________________Cartpole related code______________________
+
+    def update_hnn_params(neuron_net, param_dict):
+        # Update weights and apply masks
+        syn_names = param_dict['syn_names']
+        for syn_name in syn_names:
+            mask = param_dict[f'mask_{syn_name}'] < param_dict[f'p_{syn_name}']
+            weights = (param_dict[f'w_{syn_name}'] * param_dict[f'g_{syn_name}']) * mask
+            for nc, w in zip(neuron_net.ncs[syn_name], weights):
+                nc.weight[0] = w
+
+    update_hnn_params(neuron_net, param_dict)
+    print('Parameters Updated')
+
+    mask_output = param_dict['mask_output'] < param_dict['p_output']
+    weights_output = param_dict['w_output'] * mask_output
+    output_gids = list(net.gid_ranges['L5_pyramidal'])
+
+    spike_counts = np.zeros(net._n_gids)
     def update_drives():
         spike_counts.fill(0.0)
         indices = neuron_net._spike_times.as_numpy() > h.t - param_dict['window_size']
@@ -79,15 +96,42 @@ def _simulate_single_trial(net, tstop, dt, trial_idx):
                                    return_counts=True)
         spike_counts[values.astype(int)] = counts
 
-        for drive_cell in neuron_net._drive_cells:
-            drive_cell.nrn_nsloc.interval = np.sin(
-                2 * np.pi * h.t / 1000) * 100 + 110
+        if param_dict['save_frames']:
+            param_dict['frame_list'].append(param_dict['env'].render())
+
+        output = np.dot(weights_output, spike_counts[output_gids])
+        move = int(output > 0)
+
+        # Perform action
+        observation, reward, terminated, truncated, info = param_dict['env'].step(move)
+
+        param_dict['total_reward'] += reward
+    
+        observation -= param_dict['baseline_dict']['ob_mean']
+        observation /= param_dict['baseline_dict']['ob_std']
+
+        input_intensity = param_dict['gaussian_tuning'](observation, param_dict['tuning'], param_dict['tuning_sigma'])
+        input_intensity /= param_dict['tuning_denom']
+        input_intensity = 1000.0 / (np.sum(input_intensity, axis=1) * param_dict['max_freq'])
+        # print(input_intensity)
+
+        for drive_cell, cell_intensity in zip(neuron_net._drive_cells, input_intensity):
+            drive_cell.nrn_nsloc.interval = cell_intensity
+
+        if terminated:
+            param_dict['env'].reset(seed=param_dict['solution_idx']*10 + int(param_dict['num_attempts']) * 1)
+            param_dict['num_attempts'] += 1
+
+
+        if param_dict['num_attempts'] > param_dict['max_attempts']:
+            pass
+    #_________________________________________________________________
 
     if rank == 0:
         for tt in range(0, int(h.tstop), 100):
             _CVODE.event(tt, simulation_time)
 
-        for tt in range(0, int(h.tstop), param_dict['move_dt']):
+        for tt in range(0, int(h.tstop), int(param_dict['move_dt'])):
             _CVODE.event(tt, update_drives)
 
     h.fcurrent()

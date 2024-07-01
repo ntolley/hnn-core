@@ -371,13 +371,14 @@ class Network:
     """
 
     def __init__(self, params, add_drives_from_params=False,
-                 legacy_mode=False, mesh_shape=(10, 10),
-                 training_param_dict=None, training_update_function=None):
+                 legacy_mode=False, mesh_shape=(10, 10)):
         # Save the parameters used to create the Network
         _validate_type(params, dict, 'params')
         self._params = params
-        self.training_param_dict = training_param_dict
-        self.training_update_function = training_update_function
+
+        self.param_dict = None
+        self.sim_dict = None
+
         # Initialise a dictionary of cell ID's, which get used when the
         # network is constructed ('built') in NetworkBuilder
         # We want it to remain in each Network object, so that the user can
