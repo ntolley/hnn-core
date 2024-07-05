@@ -60,6 +60,38 @@ def _simulate_single_trial(net, tstop, dt, trial_idx):
 
     times = h.Vector().record(h._ref_t)
 
+    # _______________________Cartpole related code______________________
+    def update_hnn_params(neuron_net, param_dict):
+        neuron_net.ncs['rates'] = list()
+
+        # Update weights and apply masks
+        syn_names = param_dict['syn_names']
+        for syn_name in syn_names:
+            mask = param_dict[f'mask_{syn_name}'] < param_dict[f'p_{syn_name}']
+            weights = (10 ** param_dict[f'w_{syn_name}']) * (param_dict[f'g_{syn_name}']) * mask
+            for nc, w in zip(neuron_net.ncs[syn_name], weights):
+                nc.weight[0] = w
+
+        rate_rec_list = list()
+        for cell in neuron_net._cells:
+            rate_mech = h.Rates(cell._nrn_sections['soma'](0.5))
+            rate_mech.tau1 = param_dict['tau1']
+            rate_mech.tau2 = param_dict['tau1']
+            cell._nrn_synapses['rates'] = rate_mech
+
+            nc = _PC.gid_connect(cell.gid, cell._nrn_synapses['rates'])
+            nc.weight[0] = 1.0
+            neuron_net.ncs['rates'].append(nc)
+
+            rate_rec = h.Vector()
+            rate_rec.record(cell._nrn_synapses['rates']._ref_g)
+            rate_rec_list.append(rate_rec)
+
+        net.param_dict['rate_rec'] = rate_rec_list
+
+    update_hnn_params(neuron_net, param_dict)
+    # _________________________________________________________________________
+
     # sets the default max solver step in ms (purposefully large)
     _PC.set_maxstep(10)
 
@@ -72,35 +104,32 @@ def _simulate_single_trial(net, tstop, dt, trial_idx):
 
     # _______________________Cartpole related code______________________
 
-    def update_hnn_params(neuron_net, param_dict):
-        # Update weights and apply masks
-        syn_names = param_dict['syn_names']
-        for syn_name in syn_names:
-            mask = param_dict[f'mask_{syn_name}'] < param_dict[f'p_{syn_name}']
-            weights = (param_dict[f'w_{syn_name}'] * param_dict[f'g_{syn_name}']) * mask
-            for nc, w in zip(neuron_net.ncs[syn_name], weights):
-                nc.weight[0] = w
+    def sine_wave(t, freq=1):
+        return (np.sin(2*np.pi*freq*t) + 1) / 2
 
-    update_hnn_params(neuron_net, param_dict)
-    print('Parameters Updated')
+    # left
+    mask_left = param_dict['mask_left'] < param_dict['p_left']
+    weights_left = param_dict['w_left'] * mask_left
 
-    mask_output = param_dict['mask_output'] < param_dict['p_output']
-    weights_output = param_dict['w_output'] * mask_output
-    output_gids = list(net.gid_ranges['L5_pyramidal'])
+    # right
+    mask_right = param_dict['mask_right'] < param_dict['p_right']
+    weights_right = param_dict['w_right'] * mask_right
 
-    spike_counts = np.zeros(net._n_gids)
+    output_gids = param_dict['output_gids']
+
     def update_drives():
-        spike_counts.fill(0.0)
-        indices = neuron_net._spike_times.as_numpy() > h.t - param_dict['window_size']
-        values, counts = np.unique(neuron_net._spike_gids.as_numpy()[indices],
-                                   return_counts=True)
-        spike_counts[values.astype(int)] = counts
+        spike_counts = np.array([neuron_net._cells[gid]._nrn_synapses['rates'].g for gid in output_gids])
 
         if param_dict['save_frames']:
             param_dict['frame_list'].append(param_dict['env'].render())
 
-        output = np.dot(weights_output, spike_counts[output_gids])
-        move = int(output > 0)
+        left_output = np.dot(weights_left, spike_counts)
+        right_output = np.dot(weights_right, spike_counts)
+        move = int(right_output > left_output)
+        param_dict['move'].append(move)
+        param_dict['spike_counts'].append(spike_counts)
+        param_dict['left_output'].append(left_output)
+        param_dict['right_output'].append(right_output)
 
         # Perform action
         observation, reward, terminated, truncated, info = param_dict['env'].step(move)
@@ -110,26 +139,23 @@ def _simulate_single_trial(net, tstop, dt, trial_idx):
         observation -= param_dict['baseline_dict']['ob_mean']
         observation /= param_dict['baseline_dict']['ob_std']
 
+        # observation = np.array([sine_wave(h.t / 1000, freq=1), 0, 0, 0]) # testing tuning
         input_intensity = param_dict['gaussian_tuning'](observation, param_dict['tuning'], param_dict['tuning_sigma'])
         input_intensity /= param_dict['tuning_denom']
-        input_intensity = 1000.0 / (np.sum(input_intensity, axis=1) * param_dict['max_freq'])
-        # print(input_intensity)
+        input_intensity = 1000.0 / np.clip(np.sum(input_intensity, axis=1) * param_dict['max_freq'], 1e-8, 1e8)
 
+        # assert len(neuron_net._drive_cells) == len(input_intensity)
         for drive_cell, cell_intensity in zip(neuron_net._drive_cells, input_intensity):
             drive_cell.nrn_nsloc.interval = cell_intensity
 
         if terminated:
             param_dict['env'].reset(seed=param_dict['solution_idx']*10 + int(param_dict['num_attempts']) * 1)
             param_dict['num_attempts'] += 1
-
-
-        if param_dict['num_attempts'] > param_dict['max_attempts']:
-            pass
     #_________________________________________________________________
 
     if rank == 0:
-        for tt in range(0, int(h.tstop), 100):
-            _CVODE.event(tt, simulation_time)
+        # for tt in range(0, int(h.tstop), 100):
+        #     _CVODE.event(tt, simulation_time)
 
         for tt in range(0, int(h.tstop), int(param_dict['move_dt'])):
             _CVODE.event(tt, update_drives)
@@ -140,7 +166,10 @@ def _simulate_single_trial(net, tstop, dt, trial_idx):
     _PC.barrier()
 
     # actual simulation - run the solver
-    _PC.psolve(h.tstop)
+    # _PC.psolve(h.tstop)
+    while h.t < h.tstop and param_dict['num_attempts'] < 3:
+        h.fadvance(param_dict['move_dt'])
+        # update_drives()
 
     _PC.barrier()
 
@@ -221,7 +250,7 @@ def load_custom_mechanisms():
         raise FileNotFoundError(f'No .so or .dll file found in {mod_dir}')
 
     h.nrn_load_dll(mech_fname[0])
-    print('Loading custom mechanism files from %s' % mech_fname[0])
+    # print('Loading custom mechanism files from %s' % mech_fname[0])
     if not _is_loaded_mechanisms():
         raise ValueError('The custom mechanisms could not be loaded')
 
@@ -376,8 +405,8 @@ class NetworkBuilder(object):
         # load mechanisms needs ParallelContext for get_rank
         load_custom_mechanisms()
 
-        if self._rank == 0:
-            print('Building the NEURON model')
+        # if self._rank == 0:
+        #     print('Building the NEURON model')
 
         self._clear_last_network_objects()
 
@@ -408,8 +437,8 @@ class NetworkBuilder(object):
         if len(self.net.rec_arrays) > 0:
             self._record_extracellular()
 
-        if self._rank == 0:
-            print('[Done]')
+        # if self._rank == 0:
+        #     print('[Done]')
 
     def _gid_assign(self, rank=None, n_hosts=None):
         """Assign cell IDs to this node
