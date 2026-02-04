@@ -16,6 +16,7 @@ from .externals.mne import _check_option
 
 import hnn_core
 from .viz import plot_dipole, plot_psd, plot_tfr_morlet
+from scipy.stats import pearsonr
 
 
 def simulate_dipole(net, tstop, dt=0.025, n_trials=None, record_vsec=False,
@@ -469,7 +470,50 @@ def _corr(dpl, exp_dpl, tstart=0.0, tstop=0.0, weights=None):
     obj = (-1 * np.corrcoef(dpl1 * weights, dpl2 * weights)[0, 1]) + 1 # transform so that 0 is a perfect fit
     return obj
 
+def _rmse_corr(dpl, exp_dpl, tstart=0.0, tstop=0.0):
 
+    """Calculates RMSE between data in dpl and exp_dpl
+    weighted by correlation
+    
+    Parameters
+    ----------
+    dpl : instance of Dipole
+        A dipole object with simulated data
+    exp_dpl : instance of Dipole
+        A dipole object with experimental data
+
+    Returns
+    -------
+    err : float
+        Weighted RMSE between data in dpl and exp_dpl
+        rmse**(2-corr(dpl, exp_dpl))
+    """
+    from scipy import signal
+
+    exp_start_index = exp_dpl.times.argmin()
+    exp_end_index = exp_dpl.times.argmax()
+    exp_length = exp_end_index - exp_start_index + 1
+
+    sim_start_index = dpl.times.argmin()
+    sim_end_index = dpl.times.argmax()
+    sim_length = sim_end_index - sim_start_index + 1
+
+
+    dpl1 = dpl.data["agg"]
+    dpl2 = exp_dpl.data["agg"]
+
+    if sim_length > exp_length:
+        # downsample simulation timeseries to match exp data
+        dpl1 = signal.resample(dpl1, exp_length)
+    elif sim_length < exp_length:
+        # downsample exp timeseries to match simulation data
+        dpl2 = signal.resample(dpl2, sim_length)
+
+    rmse = np.sqrt(((dpl1 - dpl2) ** 2).mean())
+    sig_corr = pearsonr(dpl1, dpl2)[0]
+
+    return rmse*(2-sig_corr)
+    
 class Dipole(object):
     """Dipole class.
 
