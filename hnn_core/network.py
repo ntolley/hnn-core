@@ -584,6 +584,7 @@ class Network:
         if add_drives_from_params:
             _add_drives_from_params(self)
 
+
         self._tstop = None
         self._dt = None
 
@@ -1507,15 +1508,14 @@ class Network:
         need to be recalculated, all the GIDs etc remain the same.
         """
         self._reset_drives()
-
         # each trial needs unique event time vectors
         for trial_idx in range(n_trials):
-            for drive in self.external_drives.values():
+            for d, drive in enumerate(self.external_drives.values()):
                 event_times = list()  # new list for each trial and drive
-                for drive_cell_gid in self.gid_ranges[drive["name"]]:
-                    drive_cell_gid_offset = (
-                        drive_cell_gid - self.gid_ranges[drive["name"]][0]
-                    )
+                
+                for drive_cell_gid in self.gid_ranges[drive['name']]:
+                    drive_cell_gid_offset = (drive_cell_gid -
+                                             self.gid_ranges[drive['name']][0])
                     trial_seed_offset = self._n_gids
                     if drive["cell_specific"]:
                         # loop over drives (one for each target cell
@@ -1527,6 +1527,7 @@ class Network:
                                 for conn_idx in conn_idxs
                             ]
                         )
+                        
                         for target_type in target_types:
                             event_times.append(
                                 _drive_cell_event_times(
@@ -1541,6 +1542,7 @@ class Network:
                                 )
                             )
                     else:
+                        
                         src_event_times = _drive_cell_event_times(
                             drive["type"],
                             drive["dynamics"],
