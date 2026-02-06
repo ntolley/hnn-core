@@ -497,12 +497,12 @@ def _run_opt_cma(
             tstop=tstop,
             obj_fun_kwargs=obj_fun_kwargs,
         )
-
-    _b_obj_func = cma.BoundDomainTransform(_obj_func, constraints)  # evaluates fun only in the bounded domain
-
+    # KD: I got a lot of solutions outside the 
+    #_b_obj_func = cma.BoundDomainTransform(_obj_func, constraints)  # evaluates fun only in the bounded domain
 
     sigma = 1 / (np.array(constraints[1]) - np.array(constraints[0]))
-    es = cma.CMAEvolutionStrategy(list(initial_params.values()), 1, {'tolfun': obj_fun_kwargs.get('tolfun', 0.01),
+    es = cma.CMAEvolutionStrategy(list(initial_params.values()), 1, {'bounds': constraints,
+                                                                    'tolfun': obj_fun_kwargs.get('tolfun', 0.01),
                                                                      'maxiter': max_iter,
                                                                      'popsize': obj_fun_kwargs.get('popsize', 100),
                                                                      'CMA_stds': obj_fun_kwargs.get('sigma', sigma),
@@ -513,18 +513,18 @@ def _run_opt_cma(
         es.disp()
     es.result_pretty()
 
-    # get optimized params
-    opt_params = solutions
+    # get best params
+    best_params = es.result.xbest
 
     # get objective values
     obj = [np.min(obj_values[:idx]) for idx in range(1, max_iter + 1)]
-
+    
     # get optimized net
-    params = _update_params(initial_params, opt_params[np.argmin(obj_values[-1])])
+    params = _update_params(initial_params, best_params)
     net_ = initial_net.copy()
     set_params(net_, params)
 
-    return opt_params, obj, net_
+    return best_params, obj, net_ 
 
 
 def _run_opt_cobyla(
@@ -612,7 +612,7 @@ def _run_opt_cobyla(
 def add_opt_drives(net, tstop=200, n_prox=2, n_dist=1):
     prox_cell_type = ['L5_pyramidal', 'L5_basket', 'L2_pyramidal', 'L2_basket']
     dist_cell_type = ['L5_pyramidal', 'L2_pyramidal', 'L2_basket']
-    default_range = {'mu': (0, tstop), 'sigma': (0, 20), 'ampa': (-5, 1), 'nmda': (-5, 1)}
+    default_range = {'mu': (0.01, tstop), 'sigma': (0.01, 20), 'ampa': (-5, 1), 'nmda': (-5, 1)}
     default_values = {'mu': tstop // 2, 'sigma': 2, 'ampa': -3, 'nmda': -3}
 
     prox_weights  = {cell_type: 0.0 for cell_type in prox_cell_type}
@@ -681,12 +681,22 @@ def set_params_opt_drives(net, param_values):
         target_cell_types = net.external_drives[name]['target_types']
 
         net.external_drives[name]['dynamics']['mu'] = param_values[f'{name}_mu']
-        
-        # Very important this remains above 0.0
-        net.external_drives[name]['dynamics']['sigma'] = max(0.01, param_values[f'{name}_sigma'])
+        net.external_drives[name]['dynamics']['sigma'] = param_values[f'{name}_sigma']
+        net.external_drives[name]['dynamics']['numspikes'] = max(1, int(np.round(param_values[f'{name}_numspikes'])))
+
+        # reinstate external drives to be able to fill in below
+        for receptor in ['ampa', 'nmda']:
+                        net.external_drives[name][f'weights_{receptor}'] = {
+                        ct: 0.0 for ct in target_cell_types
+                    }
 
         for cell_type in target_cell_types:
             for receptor in ['ampa', 'nmda']:
+                
                 conn_idx = pick_connection(net, src_gids=name, target_gids=cell_type, receptor=receptor)
                 assert len(conn_idx) == 1
+                
+                # KD: I still think this isn't the user-friendliest way as this is pretty hidden. 
+                # Will fix.
                 net.connectivity[conn_idx[0]]['nc_dict']['A_weight'] = 10 ** param_values[f'{name}_{cell_type}_{receptor}']
+                net.external_drives[name][f'weights_{receptor}'][cell_type] = 10 ** param_values[f'{name}_{cell_type}_{receptor}']
