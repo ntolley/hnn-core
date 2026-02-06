@@ -612,7 +612,7 @@ def _run_opt_cobyla(
 def add_opt_drives(net, tstop=200, n_prox=2, n_dist=1):
     prox_cell_type = ['L5_pyramidal', 'L5_basket', 'L2_pyramidal', 'L2_basket']
     dist_cell_type = ['L5_pyramidal', 'L2_pyramidal', 'L2_basket']
-    default_range = {'mu': (0.01, tstop), 'sigma': (0.01, 20), 'ampa': (-5, 1), 'nmda': (-5, 1)}
+    default_range = {'mu': (0.01, tstop), 'sigma': (0.01, 20),'numspikes':(0,1), 'ampa': (-5, 1), 'nmda': (-5, 1)}
     default_values = {'mu': tstop // 2, 'sigma': 2, 'ampa': -3, 'nmda': -3}
 
     prox_weights  = {cell_type: 0.0 for cell_type in prox_cell_type}
@@ -630,6 +630,9 @@ def add_opt_drives(net, tstop=200, n_prox=2, n_dist=1):
 
         constraints[f'{name}_sigma'] = default_range['sigma']
         initial_params[f'{name}_sigma'] = np.random.uniform(*default_range['sigma'])
+
+        constraints[f'{name}_numspikes'] = default_range['numspikes']
+        initial_params[f'{name}_numspikes'] = 1
 
         for cell_type in prox_cell_type:
             constraints[f'{name}_{cell_type}_ampa'] = default_range['ampa']
@@ -655,6 +658,9 @@ def add_opt_drives(net, tstop=200, n_prox=2, n_dist=1):
 
         constraints[f'{name}_sigma'] = default_range['sigma']
         initial_params[f'{name}_sigma'] = np.random.uniform(*default_range['sigma'])
+
+        constraints[f'{name}_numspikes'] = default_range['numspikes']
+        initial_params[f'{name}_numspikes'] = 1
 
         for cell_type in prox_cell_type:
             constraints[f'{name}_{cell_type}_ampa'] = default_range['ampa']
