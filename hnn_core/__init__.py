@@ -19,11 +19,4 @@ from .hnn_io import (
     write_network_configuration,
 )
 
-from .general_optimization import (
-    Optimizer,
-    _update_params,
-    add_opt_drives,
-    set_params_opt_drives,
-)
-
 __version__ = "0.5.1.dev0"
