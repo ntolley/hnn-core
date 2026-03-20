@@ -69,13 +69,13 @@ def _gather_trial_data(sim_data, net, n_trials, postproc, bsl_cor='jones'):
         N_pyr_x = net._N_pyr_x
         N_pyr_y = net._N_pyr_y
         if bsl_cor == 'jones':
-            print('Applying Jones baseline correction', flush=True)
+            # print('Applying Jones baseline correction', flush=True)
             dpl._baseline_renormalize(N_pyr_x, N_pyr_y)  # XXX cf. #270
 
         dpl._convert_fAm_to_nAm()  # always applied, cf. #264
 
         if bsl_cor == 'duecker':
-            print('Applying calcium model baseline correction', flush=True)
+            # print('Applying calcium model baseline correction', flush=True)
             dpl._baseline_renormalize_dueckerET()
 
         if postproc:
@@ -572,10 +572,10 @@ class JoblibBackend(object):
             The Dipole results from each simulation trial
         """
 
-        print(
-            f"Joblib will run {n_trials} trial(s) in parallel by "
-            f"distributing trials over {self.n_jobs} jobs."
-        )
+        # print(
+        #     f"Joblib will run {n_trials} trial(s) in parallel by "
+        #     f"distributing trials over {self.n_jobs} jobs."
+        # )
         parallel, myfunc = self._parallel_func(_simulate_single_trial)
         sim_data = parallel(
             myfunc(net, tstop, dt, trial_idx) for trial_idx in range(n_trials)

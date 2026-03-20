@@ -67,8 +67,8 @@ def _simulate_single_trial(net, tstop, dt, trial_idx):
     # delays have been specified
     h.finitialize()                 # the initial membrane potential seems to be different for each cell, this does not seem to be the same as h.finitialize(-65)
 
-    def simulation_time():
-        print(f"Trial {trial_idx + 1}: {round(h.t, 2)} ms...")
+    # def simulation_time():
+    #     print(f"Trial {trial_idx + 1}: {round(h.t, 2)} ms...")
 
     if rank == 0:
         for tt in range(0, int(h.tstop), 10):
@@ -194,7 +194,7 @@ def load_custom_mechanisms():
         raise FileNotFoundError(f"No .so or .dll file found in {mod_dir}")
 
     h.nrn_load_dll(mech_fname[0])
-    print("Loading custom mechanism files from %s" % mech_fname[0])
+    # print("Loading custom mechanism files from %s" % mech_fname[0])
     if not _is_loaded_mechanisms():
         raise ValueError("The custom mechanisms could not be loaded")
 
@@ -350,8 +350,8 @@ class NetworkBuilder(object):
         # load mechanisms needs ParallelContext for get_rank
         load_custom_mechanisms()
 
-        if self._rank == 0:
-            print("Building the NEURON model")
+        # if self._rank == 0:
+        #     print("Building the NEURON model")
 
         self._clear_last_network_objects()
 
@@ -387,8 +387,8 @@ class NetworkBuilder(object):
         if len(self.net.rec_arrays) > 0:
             self._record_extracellular()
 
-        if self._rank == 0:
-            print("[Done]")
+        # if self._rank == 0:
+        #     print("[Done]")
 
     def _gid_assign(self, rank=None, n_hosts=None):
         """Assign cell IDs to this node
